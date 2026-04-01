@@ -248,3 +248,137 @@ def logout():
     session.clear()
     flash('Logged out successfully!', 'success')
     return redirect(url_for('index'))
+
+# Admin Routes
+@app.route('/admin/dashboard')
+def admin_dashboard():
+    if session.get('role') != 'admin':
+        flash('Unauthorized access!', 'danger')
+        return redirect(url_for('login'))
+    
+    stats = {
+        'total_companies': Company.query.count(),
+        'total_students': Student.query.count(),
+        'total_jobs': JobPosition.query.count(),
+        'total_applications': Application.query.count(),
+        'pending_companies': Company.query.filter_by(is_approved=False).count(),
+        'pending_jobs': JobPosition.query.filter_by(is_approved=False).count()
+    }
+    
+    return render_template('admin_dashboard.html', stats=stats)
+
+@app.route('/admin/companies')
+def admin_companies():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    search = request.args.get('search', '')
+    if search:
+        companies = Company.query.filter(
+            (Company.name.contains(search)) | (Company.industry.contains(search))
+        ).all()
+    else:
+        companies = Company.query.all()
+    
+    return render_template('admin_companies.html', companies=companies)
+
+@app.route('/admin/company/approve/<int:id>')
+def approve_company(id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    company = Company.query.get_or_404(id)
+    company.is_approved = True
+    db.session.commit()
+    flash(f'Company {company.name} approved!', 'success')
+    return redirect(url_for('admin_companies'))
+
+@app.route('/admin/company/reject/<int:id>')
+def reject_company(id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    company = Company.query.get_or_404(id)
+    company.is_approved = False
+    db.session.commit()
+    flash(f'Company {company.name} rejected!', 'warning')
+    return redirect(url_for('admin_companies'))
+
+@app.route('/admin/company/toggle/<int:id>')
+def toggle_company(id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    company = Company.query.get_or_404(id)
+    company.is_active = not company.is_active
+    db.session.commit()
+    status = 'activated' if company.is_active else 'deactivated'
+    flash(f'Company {company.name} {status}!', 'success')
+    return redirect(url_for('admin_companies'))
+
+@app.route('/admin/students')
+def admin_students():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    search = request.args.get('search', '')
+    if search:
+        students = Student.query.filter(
+            (Student.name.contains(search)) | 
+            (Student.student_id.contains(search)) | 
+            (Student.contact.contains(search))
+        ).all()
+    else:
+        students = Student.query.all()
+    
+    return render_template('admin_students.html', students=students)
+
+@app.route('/admin/student/toggle/<int:id>')
+def toggle_student(id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    student = Student.query.get_or_404(id)
+    student.is_active = not student.is_active
+    db.session.commit()
+    status = 'activated' if student.is_active else 'blacklisted'
+    flash(f'Student {student.name} {status}!', 'success')
+    return redirect(url_for('admin_students'))
+
+@app.route('/admin/jobs')
+def admin_jobs():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    jobs = JobPosition.query.all()
+    return render_template('admin_jobs.html', jobs=jobs)
+
+@app.route('/admin/job/approve/<int:id>')
+def approve_job(id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    job = JobPosition.query.get_or_404(id)
+    job.is_approved = True
+    db.session.commit()
+    flash('Job posting approved!', 'success')
+    return redirect(url_for('admin_jobs'))
+
+@app.route('/admin/job/reject/<int:id>')
+def reject_job(id):
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    job = JobPosition.query.get_or_404(id)
+    job.is_approved = False
+    db.session.commit()
+    flash('Job posting rejected!', 'warning')
+    return redirect(url_for('admin_jobs'))
+
+@app.route('/admin/applications')
+def admin_applications():
+    if session.get('role') != 'admin':
+        return redirect(url_for('login'))
+    
+    applications = Application.query.all()
+    return render_template('admin_applications.html', applications=applications)
