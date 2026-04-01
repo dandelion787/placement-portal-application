@@ -382,3 +382,157 @@ def admin_applications():
     
     applications = Application.query.all()
     return render_template('admin_applications.html', applications=applications)
+
+@app.route('/company/dashboard')
+def company_dashboard():
+    if session.get('role') != 'company':
+        flash('Unauthorized access!', 'danger')
+        return redirect(url_for('login'))
+    
+    company = Company.query.get(session['user_id'])
+    
+    # Companies can only access dashboard when approved by admin
+    if not company.is_approved:
+        flash('Your account is pending approval from admin.', 'warning')
+        return redirect(url_for('login'))
+    if not company.is_active:
+        flash('Your account has been deactivated.', 'danger')
+        return redirect(url_for('login'))
+    
+    jobs = JobPosition.query.filter_by(company_id=company.id).all()
+    total_applications = sum(len(job.applications) for job in jobs)
+    
+    stats = {
+        'total_jobs': len(jobs),
+        'active_jobs': len([j for j in jobs if j.status == 'Active' and j.is_approved]),
+        'total_applications': total_applications
+    }
+    
+    return render_template('company_dashboard.html', company=company, stats=stats)
+
+
+@app.route('/company/jobs')
+def company_jobs():
+    if session.get('role') != 'company':
+        return redirect(url_for('login'))
+    
+    company = Company.query.get(session['user_id'])
+    jobs = JobPosition.query.filter_by(company_id=company.id).all()
+    
+    return render_template('company_jobs.html', jobs=jobs)
+
+
+@app.route('/company/job/create', methods=['GET', 'POST'])
+def create_job():
+    if session.get('role') != 'company':
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        job = JobPosition(
+            company_id=session['user_id'],
+            title=request.form.get('title'),
+            description=request.form.get('description'),
+            required_skills=request.form.get('required_skills'),  # Required skills
+            experience=request.form.get('experience'),             # Experience
+            salary_range=request.form.get('salary_range')         # Salary range
+        )
+        db.session.add(job)
+        db.session.commit()
+        flash('Job posted successfully! Awaiting admin approval.', 'success')
+        return redirect(url_for('company_jobs'))
+    
+    return render_template('create_job.html')
+
+
+@app.route('/company/job/edit/<int:id>', methods=['GET', 'POST'])
+def edit_job(id):
+    if session.get('role') != 'company':
+        return redirect(url_for('login'))
+    
+    job = JobPosition.query.get_or_404(id)
+    
+    if job.company_id != session['user_id']:
+        flash('Unauthorized access!', 'danger')
+        return redirect(url_for('company_jobs'))
+    
+    if request.method == 'POST':
+        job.title = request.form.get('title')
+        job.description = request.form.get('description')
+        job.required_skills = request.form.get('required_skills')
+        job.experience = request.form.get('experience')
+        job.salary_range = request.form.get('salary_range')
+        job.status = request.form.get('status')  # Active / Closed status update
+        db.session.commit()
+        flash('Job updated successfully!', 'success')
+        return redirect(url_for('company_jobs'))
+    
+    return render_template('edit_job.html', job=job)
+
+
+@app.route('/company/applications/<int:job_id>')
+def company_applications(job_id):
+    if session.get('role') != 'company':
+        return redirect(url_for('login'))
+    
+    job = JobPosition.query.get_or_404(job_id)
+    
+    if job.company_id != session['user_id']:
+        flash('Unauthorized access!', 'danger')
+        return redirect(url_for('company_jobs'))
+    
+    applications = Application.query.filter_by(job_id=job_id).all()
+    
+    return render_template('company_applications.html', job=job, applications=applications)
+
+
+@app.route('/company/application/update/<int:id>/<status>')
+def update_application(id, status):
+    if session.get('role') != 'company':
+        return redirect(url_for('login'))
+    
+    # Validate status values — Shortlisted / Selected / Rejected
+    if status not in ['Shortlisted', 'Selected', 'Rejected', 'Placed']:
+        flash('Invalid status!', 'danger')
+        return redirect(url_for('company_dashboard'))
+    
+    application = Application.query.get_or_404(id)
+    
+    if application.job_position.company_id != session['user_id']:
+        flash('Unauthorized access!', 'danger')
+        return redirect(url_for('company_dashboard'))
+    
+    application.status = status
+    application.updated_date = datetime.utcnow()
+    
+    if status == 'Placed':
+        placement = Placement(application_id=application.id)
+        db.session.add(placement)
+    
+    db.session.commit()
+    flash(f'Application status updated to {status}!', 'success')
+    return redirect(url_for('company_applications', job_id=application.job_id))
+
+
+# View shortlisted student profile and resume
+@app.route('/company/student/profile/<int:student_id>')
+def view_student_profile(student_id):
+    if session.get('role') != 'company':
+        return redirect(url_for('login'))
+    
+    company = Company.query.get(session['user_id'])
+    
+    # Ensure the student has applied to at least one of this company's jobs
+    # and is shortlisted — prevents unauthorized profile access
+    company_job_ids = [job.id for job in company.job_positions]
+    shortlisted_application = Application.query.filter(
+        Application.student_id == student_id,
+        Application.job_id.in_(company_job_ids),
+        Application.status.in_(['Shortlisted', 'Selected', 'Placed'])
+    ).first()
+    
+    if not shortlisted_application:
+        flash('Unauthorized access or student not shortlisted!', 'danger')
+        return redirect(url_for('company_dashboard'))
+    
+    student = Student.query.get_or_404(student_id)
+    return render_template('view_student_profile.html', student=student)
