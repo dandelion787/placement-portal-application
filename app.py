@@ -146,7 +146,7 @@ if __name__ == '__main__':
     init_db()
     print("Database initialised successfully.")
 
-######ROUTES#############
+###########ROUTES_Defined#############
 @app.route('/')
 def index():
     return render_template('index.html')
