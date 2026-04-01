@@ -128,7 +128,123 @@ def init_db():
         db.create_all()
 
         os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
-        
+
+        # Create default admin if not exists
+        admin = Admin.query.filter_by(username='admin').first()
+        if not admin:
+            admin = Admin(
+                username='admin',
+                email='admin@placementportal.com',
+                password=generate_password_hash('admin123')
+            )
+            db.session.add(admin)
+            db.session.commit()
+            print("Default admin created: username='admin', password='admin123'")
+
+
 if __name__ == '__main__':
     init_db()
     print("Database initialised successfully.")
+
+######ROUTES#############
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        role = request.form.get('role')
+        
+        if role == 'admin':
+            user = Admin.query.filter_by(email=email).first()
+            if user and check_password_hash(user.password, password):
+                session['user_id'] = user.id
+                session['role'] = 'admin'
+                flash('Login successful!', 'success')
+                return redirect(url_for('admin_dashboard'))  # Admin dashboard redirect
+        
+        elif role == 'company':
+            user = Company.query.filter_by(email=email).first()
+            if user and check_password_hash(user.password, password):
+                if not user.is_active:
+                    flash('Your account has been deactivated.', 'danger')
+                    return redirect(url_for('login'))
+                if not user.is_approved:
+                    flash('Your account is pending approval from admin.', 'warning')
+                    return redirect(url_for('login'))
+                session['user_id'] = user.id
+                session['role'] = 'company'
+                flash('Login successful!', 'success')
+                return redirect(url_for('company_dashboard'))  # Company dashboard redirect
+        
+        elif role == 'student':
+            user = Student.query.filter_by(email=email).first()
+            if user and check_password_hash(user.password, password):
+                if not user.is_active:
+                    flash('Your account has been deactivated.', 'danger')
+                    return redirect(url_for('login'))
+                session['user_id'] = user.id
+                session['role'] = 'student'
+                flash('Login successful!', 'success')
+                return redirect(url_for('student_dashboard'))  # Student dashboard redirect
+        
+        flash('Invalid credentials!', 'danger')
+    
+    return render_template('login.html')
+
+@app.route('/register/<role>', methods=['GET', 'POST'])
+def register(role):
+    if role not in ['student', 'company']:  # Admin has no registration
+        flash('Invalid registration type!', 'danger')
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        if role == 'student':
+            existing = Student.query.filter_by(email=email).first()
+            if existing:
+                flash('Email already registered!', 'danger')
+                return redirect(url_for('register', role='student'))
+            
+            student = Student(
+                name=request.form.get('name'),
+                email=email,
+                password=generate_password_hash(password),
+                student_id=request.form.get('student_id'),
+                contact=request.form.get('contact')
+            )
+            db.session.add(student)
+            db.session.commit()
+            flash('Registration successful! Please login.', 'success')
+            return redirect(url_for('login'))
+        
+        elif role == 'company':
+            existing = Company.query.filter_by(email=email).first()
+            if existing:
+                flash('Email already registered!', 'danger')
+                return redirect(url_for('register', role='company'))
+            
+            company = Company(
+                name=request.form.get('name'),
+                email=email,
+                password=generate_password_hash(password),
+                industry=request.form.get('industry'),
+                contact=request.form.get('contact')
+            )
+            db.session.add(company)
+            db.session.commit()
+            flash('Registration successful! Awaiting admin approval.', 'success')
+            return redirect(url_for('login'))
+    
+    return render_template('register.html', role=role)
+
+@app.route('/logout')
+def logout():
+    session.clear()
+    flash('Logged out successfully!', 'success')
+    return redirect(url_for('index'))
