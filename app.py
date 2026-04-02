@@ -778,3 +778,314 @@ def create_notification(student_id, application_id, status):
             is_read=False
         )
         db.session.add(notification)
+
+
+# ─────────────────────────────────────────
+# APPLICATION HISTORY
+# ─────────────────────────────────────────
+
+@app.route('/student/applications/history')
+def student_application_history():
+    if session.get('role') != 'student':
+        return redirect(url_for('login'))
+
+    # Complete application history — all statuses, newest first
+    applications = Application.query.filter_by(
+        student_id=session['user_id']
+    ).order_by(Application.applied_date.desc()).all()
+
+    # Build a full timeline of status changes per application
+    history = []
+    for app in applications:
+        history.append({
+            'application': app,
+            'job':         app.job_position,
+            'company':     app.job_position.company,
+            'status':      app.status,
+            'applied_on':  app.applied_date,
+            'updated_on':  app.updated_date,
+        })
+
+    return render_template('student_application_history.html', history=history)
+
+
+# ─────────────────────────────────────────
+# DUPLICATE APPLICATION PREVENTION
+# ─────────────────────────────────────────
+
+@app.route('/student/apply/<int:job_id>')
+def apply_job(job_id):
+    if session.get('role') != 'student':
+        return redirect(url_for('login'))
+
+    student = Student.query.get(session['user_id'])
+
+    if not student.is_active:
+        flash('Your account has been deactivated.', 'danger')
+        return redirect(url_for('login'))
+
+    # Resume must be uploaded before applying
+    if not student.resume_path:
+        flash('Please upload your resume before applying!', 'warning')
+        return redirect(url_for('student_profile'))
+
+    job = JobPosition.query.get_or_404(job_id)
+
+    # Only approved companies can have active placement drives
+    if not job.company.is_approved or not job.company.is_active:
+        flash('This placement drive is no longer available.', 'warning')
+        return redirect(url_for('student_jobs'))
+
+    # Job itself must be approved and active
+    if not job.is_approved or job.status != 'Active':
+        flash('This job is no longer accepting applications.', 'warning')
+        return redirect(url_for('student_jobs'))
+
+    # Strict duplicate check — one application per student per job
+    existing = Application.query.filter_by(
+        student_id=student.id,
+        job_id=job_id
+    ).first()
+
+    if existing:
+        flash(
+            f'You have already applied for this position. '
+            f'Current status: {existing.status}',
+            'warning'
+        )
+        return redirect(url_for('student_jobs'))
+
+    application = Application(
+        student_id=student.id,
+        job_id=job_id,
+        status='Applied'     # Initial status
+    )
+    db.session.add(application)
+    db.session.commit()
+
+    flash('Application submitted successfully!', 'success')
+    return redirect(url_for('student_applications'))
+
+
+# ─────────────────────────────────────────
+# STUDENT — VIEW OWN RECORDS ONLY
+# ─────────────────────────────────────────
+
+@app.route('/student/applications')
+def student_applications():
+    if session.get('role') != 'student':
+        return redirect(url_for('login'))
+
+    # Students can only view their own applications
+    applications = Application.query.filter_by(
+        student_id=session['user_id']
+    ).order_by(Application.applied_date.desc()).all()
+
+    return render_template('student_applications.html', applications=applications)
+
+
+@app.route('/student/profile', methods=['GET', 'POST'])
+def student_profile():
+    if session.get('role') != 'student':
+        return redirect(url_for('login'))
+
+    # Students can only view and edit their own profile
+    student = Student.query.get(session['user_id'])
+
+    if request.method == 'POST':
+        student.name      = request.form.get('name')
+        student.contact   = request.form.get('contact')
+        student.education = request.form.get('education')
+        student.skills    = request.form.get('skills')
+
+        if 'resume' in request.files:
+            file = request.files['resume']
+            if file and file.filename:
+                allowed = {'pdf', 'doc', 'docx'}
+                ext = file.filename.rsplit('.', 1)[-1].lower()
+                if ext not in allowed:
+                    flash('Invalid file type! Only PDF, DOC, DOCX allowed.', 'danger')
+                    return redirect(url_for('student_profile'))
+                filename = secure_filename(f"{student.id}_{file.filename}")
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                student.resume_path = filename
+
+        db.session.commit()
+        flash('Profile updated successfully!', 'success')
+        return redirect(url_for('student_profile'))
+
+    return render_template('student_profile.html', student=student)
+
+
+# ─────────────────────────────────────────
+# APPROVED PLACEMENT DRIVES — STUDENT VIEW
+# ─────────────────────────────────────────
+
+@app.route('/student/jobs')
+def student_jobs():
+    if session.get('role') != 'student':
+        return redirect(url_for('login'))
+
+    search = request.args.get('search', '')
+
+    # Only surface jobs from approved + active companies that are
+    # themselves approved and active — full chain validation
+    jobs = JobPosition.query.join(Company).filter(
+        JobPosition.is_approved == True,
+        JobPosition.status == 'Active',
+        Company.is_approved == True,
+        Company.is_active == True
+    ).all()
+
+    if search:
+        jobs = [j for j in jobs if
+                search.lower() in j.title.lower() or
+                search.lower() in j.company.name.lower() or
+                search.lower() in (j.required_skills or '').lower()]
+
+    applied_job_ids = [
+        a.job_id for a in
+        Application.query.filter_by(student_id=session['user_id']).all()
+    ]
+
+    return render_template('student_jobs.html', jobs=jobs, applied_job_ids=applied_job_ids)
+
+
+# ─────────────────────────────────────────
+# APPLICATION STATUS MANAGEMENT
+# ─────────────────────────────────────────
+
+@app.route('/company/application/update/<int:id>/<status>')
+def update_application(id, status):
+    if session.get('role') != 'company':
+        return redirect(url_for('login'))
+
+    company = Company.query.get(session['user_id'])
+
+    # Only approved companies can update application statuses
+    if not company.is_approved or not company.is_active:
+        flash('Your company account is not authorized.', 'danger')
+        return redirect(url_for('login'))
+
+    # Full status lifecycle
+    allowed_statuses = ['Applied', 'Shortlisted', 'Interview', 'Rejected', 'Selected', 'Placed']
+    if status not in allowed_statuses:
+        flash('Invalid status!', 'danger')
+        return redirect(url_for('company_dashboard'))
+
+    application = Application.query.get_or_404(id)
+
+    # Company can only update applications for their own jobs
+    if application.job_position.company_id != session['user_id']:
+        flash('Unauthorized access!', 'danger')
+        return redirect(url_for('company_dashboard'))
+
+    application.status       = status
+    application.updated_date = datetime.utcnow()
+
+    # Trigger notification to student on every status change
+    create_notification(application.student_id, application.id, status)
+
+    if status == 'Placed':
+        # Avoid duplicate placement records
+        existing_placement = Placement.query.filter_by(
+            application_id=application.id
+        ).first()
+        if not existing_placement:
+            placement = Placement(application_id=application.id)
+            db.session.add(placement)
+
+    db.session.commit()
+    flash(f'Application status updated to {status}!', 'success')
+    return redirect(url_for('company_applications', job_id=application.job_id))
+
+
+# ─────────────────────────────────────────
+# ROLE-BASED PROFILE & APPLICATION ACCESS
+# ─────────────────────────────────────────
+
+# Admin — view any student profile and all their applications
+@app.route('/admin/student/<int:student_id>')
+def admin_view_student(student_id):
+    if session.get('role') != 'admin':
+        flash('Unauthorized access!', 'danger')
+        return redirect(url_for('login'))
+
+    student      = Student.query.get_or_404(student_id)
+    applications = Application.query.filter_by(
+        student_id=student_id
+    ).order_by(Application.applied_date.desc()).all()
+
+    return render_template('admin_view_student.html', student=student, applications=applications)
+
+
+# Admin — view any single application in full detail
+@app.route('/admin/application/<int:application_id>')
+def admin_view_application(application_id):
+    if session.get('role') != 'admin':
+        flash('Unauthorized access!', 'danger')
+        return redirect(url_for('login'))
+
+    application = Application.query.get_or_404(application_id)
+    return render_template('admin_view_application.html', application=application)
+
+
+# Company — view shortlisted/selected student profile and resume
+@app.route('/company/student/profile/<int:student_id>')
+def company_view_student(student_id):
+    if session.get('role') != 'company':
+        return redirect(url_for('login'))
+
+    company = Company.query.get(session['user_id'])
+
+    if not company.is_approved or not company.is_active:
+        flash('Your company account is not authorized.', 'danger')
+        return redirect(url_for('login'))
+
+    # Company can only view profiles of students who applied to their jobs
+    # and have progressed past the initial Applied stage
+    company_job_ids = [job.id for job in company.job_positions]
+    application = Application.query.filter(
+        Application.student_id == student_id,
+        Application.job_id.in_(company_job_ids),
+        Application.status.in_(['Shortlisted', 'Interview', 'Selected', 'Placed'])
+    ).first()
+
+    if not application:
+        flash('You can only view profiles of shortlisted or selected applicants.', 'danger')
+        return redirect(url_for('company_dashboard'))
+
+    student = Student.query.get_or_404(student_id)
+    return render_template('company_view_student.html', student=student, application=application)
+
+
+# Company — view all applications across all their job postings
+@app.route('/company/applications/all')
+def company_all_applications():
+    if session.get('role') != 'company':
+        return redirect(url_for('login'))
+
+    company = Company.query.get(session['user_id'])
+
+    if not company.is_approved or not company.is_active:
+        flash('Your company account is not authorized.', 'danger')
+        return redirect(url_for('login'))
+
+    # Filter by status if provided
+    status_filter = request.args.get('status', '')
+    allowed_statuses = ['Applied', 'Shortlisted', 'Interview', 'Rejected', 'Selected', 'Placed']
+
+    company_job_ids = [job.id for job in company.job_positions]
+    query = Application.query.filter(Application.job_id.in_(company_job_ids))
+
+    if status_filter and status_filter in allowed_statuses:
+        query = query.filter_by(status=status_filter)
+
+    applications = query.order_by(Application.applied_date.desc()).all()
+
+    return render_template(
+        'company_all_applications.html',
+        applications=applications,
+        status_filter=status_filter,
+        allowed_statuses=allowed_statuses
+    )
