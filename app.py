@@ -490,7 +490,6 @@ def update_application(id, status):
     if session.get('role') != 'company':
         return redirect(url_for('login'))
     
-    # Validate status values — Shortlisted / Selected / Rejected
     if status not in ['Shortlisted', 'Selected', 'Rejected', 'Placed']:
         flash('Invalid status!', 'danger')
         return redirect(url_for('company_dashboard'))
@@ -503,6 +502,9 @@ def update_application(id, status):
     
     application.status = status
     application.updated_date = datetime.utcnow()
+    
+    # Trigger notification to student on every status change
+    create_notification(application.student_id, application.id, status)
     
     if status == 'Placed':
         placement = Placement(application_id=application.id)
@@ -536,3 +538,243 @@ def view_student_profile(student_id):
     
     student = Student.query.get_or_404(student_id)
     return render_template('view_student_profile.html', student=student)
+
+
+@app.route('/student/dashboard')
+def student_dashboard():
+    if session.get('role') != 'student':
+        flash('Unauthorized access!', 'danger')
+        return redirect(url_for('login'))
+    
+    student = Student.query.get(session['user_id'])
+    
+    if not student.is_active:
+        flash('Your account has been deactivated.', 'danger')
+        return redirect(url_for('login'))
+    
+    applications = Application.query.filter_by(student_id=student.id).all()
+    
+    # Fetch unread notifications for dashboard alert display
+    notifications = Notification.query.filter_by(
+        student_id=student.id,
+        is_read=False
+    ).order_by(Notification.created_at.desc()).all()
+    
+    stats = {
+        'total_applications': len(applications),
+        'shortlisted': len([a for a in applications if a.status == 'Shortlisted']),
+        'selected': len([a for a in applications if a.status == 'Selected']),
+        'rejected': len([a for a in applications if a.status == 'Rejected']),
+        'placed': len([a for a in applications if a.status == 'Placed'])
+    }
+    
+    return render_template('student_dashboard.html', student=student, stats=stats, notifications=notifications)
+
+
+@app.route('/student/profile', methods=['GET', 'POST'])
+def student_profile():
+    if session.get('role') != 'student':
+        return redirect(url_for('login'))
+    
+    student = Student.query.get(session['user_id'])
+    
+    if request.method == 'POST':
+        student.name = request.form.get('name')
+        student.contact = request.form.get('contact')
+        student.education = request.form.get('education')   # Education update
+        student.skills = request.form.get('skills')         # Skills update
+        
+        # Resume upload — allowed on both registration and profile update
+        if 'resume' in request.files:
+            file = request.files['resume']
+            if file and file.filename:
+                allowed_extensions = {'pdf', 'doc', 'docx'}
+                ext = file.filename.rsplit('.', 1)[-1].lower()
+                if ext not in allowed_extensions:
+                    flash('Invalid file type! Only PDF, DOC, DOCX allowed.', 'danger')
+                    return redirect(url_for('student_profile'))
+                
+                filename = secure_filename(f"{student.id}_{file.filename}")
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                student.resume_path = filename
+        
+        db.session.commit()
+        flash('Profile updated successfully!', 'success')
+        return redirect(url_for('student_profile'))
+    
+    return render_template('student_profile.html', student=student)
+
+
+@app.route('/register/student', methods=['GET', 'POST'])
+def register_student():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        password = request.form.get('password')
+        
+        existing = Student.query.filter_by(email=email).first()
+        if existing:
+            flash('Email already registered!', 'danger')
+            return redirect(url_for('register_student'))
+        
+        student = Student(
+            name=request.form.get('name'),
+            email=email,
+            password=generate_password_hash(password),
+            student_id=request.form.get('student_id'),
+            contact=request.form.get('contact'),
+            education=request.form.get('education'),
+            skills=request.form.get('skills')
+        )
+        db.session.add(student)
+        db.session.flush()  # Get student.id before commit for resume naming
+        
+        # Resume upload option during registration
+        if 'resume' in request.files:
+            file = request.files['resume']
+            if file and file.filename:
+                allowed_extensions = {'pdf', 'doc', 'docx'}
+                ext = file.filename.rsplit('.', 1)[-1].lower()
+                if ext not in allowed_extensions:
+                    flash('Invalid file type! Only PDF, DOC, DOCX allowed.', 'danger')
+                    return redirect(url_for('register_student'))
+                
+                filename = secure_filename(f"{student.id}_{file.filename}")
+                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(filepath)
+                student.resume_path = filename
+        
+        db.session.commit()
+        flash('Registration successful! Please login.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('register_student.html')
+
+
+@app.route('/student/jobs')
+def student_jobs():
+    if session.get('role') != 'student':
+        return redirect(url_for('login'))
+    
+    search = request.args.get('search', '')
+    
+    # Only show admin-approved and active jobs
+    jobs = JobPosition.query.filter_by(is_approved=True, status='Active').all()
+    
+    # Search by company name, position/title, or required skills
+    if search:
+        jobs = [j for j in jobs if
+                search.lower() in j.title.lower() or
+                search.lower() in j.company.name.lower() or
+                search.lower() in (j.required_skills or '').lower()]
+    
+    # Track which jobs the student has already applied to
+    student_applications = Application.query.filter_by(student_id=session['user_id']).all()
+    applied_job_ids = [app.job_id for app in student_applications]
+    
+    return render_template('student_jobs.html', jobs=jobs, applied_job_ids=applied_job_ids)
+
+
+@app.route('/student/apply/<int:job_id>')
+def apply_job(job_id):
+    if session.get('role') != 'student':
+        return redirect(url_for('login'))
+    
+    student = Student.query.get(session['user_id'])
+    
+    # Block application if resume is not uploaded
+    if not student.resume_path:
+        flash('Please upload your resume before applying!', 'warning')
+        return redirect(url_for('student_profile'))
+    
+    job = JobPosition.query.get_or_404(job_id)
+    
+    # Ensure job is still active and approved
+    if not job.is_approved or job.status != 'Active':
+        flash('This job is no longer accepting applications.', 'warning')
+        return redirect(url_for('student_jobs'))
+    
+    # Prevent duplicate applications
+    existing = Application.query.filter_by(
+        student_id=session['user_id'],
+        job_id=job_id
+    ).first()
+    
+    if existing:
+        flash('You have already applied for this job!', 'warning')
+        return redirect(url_for('student_jobs'))
+    
+    application = Application(
+        student_id=session['user_id'],
+        job_id=job_id,
+        status='Applied'
+    )
+    db.session.add(application)
+    db.session.commit()
+    
+    flash('Application submitted successfully!', 'success')
+    return redirect(url_for('student_jobs'))
+
+
+@app.route('/student/applications')
+def student_applications():
+    if session.get('role') != 'student':
+        return redirect(url_for('login'))
+    
+    # View all applied jobs with their current application status
+    applications = Application.query.filter_by(
+        student_id=session['user_id']
+    ).order_by(Application.applied_date.desc()).all()
+    
+    return render_template('student_applications.html', applications=applications)
+
+
+# Notifications — status change alerts for shortlisted/selected/rejected
+@app.route('/student/notifications')
+def student_notifications():
+    if session.get('role') != 'student':
+        return redirect(url_for('login'))
+    
+    notifications = Notification.query.filter_by(
+        student_id=session['user_id']
+    ).order_by(Notification.created_at.desc()).all()
+    
+    # Mark all as read when the page is opened
+    for notification in notifications:
+        notification.is_read = True
+    db.session.commit()
+    
+    return render_template('student_notifications.html', notifications=notifications)
+
+
+@app.route('/student/notifications/unread-count')
+def unread_notification_count():
+    if session.get('role') != 'student':
+        return {'count': 0}
+    
+    count = Notification.query.filter_by(
+        student_id=session['user_id'],
+        is_read=False
+    ).count()
+    
+    return {'count': count}
+
+
+# Helper — called inside update_application() when company changes status
+def create_notification(student_id, application_id, status):
+    application = Application.query.get(application_id)
+    messages = {
+        'Shortlisted': f'You have been shortlisted for {application.job_position.title} at {application.job_position.company.name}!',
+        'Selected':    f'Congratulations! You have been selected for {application.job_position.title} at {application.job_position.company.name}!',
+        'Rejected':    f'Your application for {application.job_position.title} at {application.job_position.company.name} was not selected.',
+        'Placed':      f'Congratulations! You have been placed at {application.job_position.company.name}!'
+    }
+    
+    if status in messages:
+        notification = Notification(
+            student_id=student_id,
+            application_id=application_id,
+            message=messages[status],
+            is_read=False
+        )
+        db.session.add(notification)
