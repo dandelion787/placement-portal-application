@@ -10,7 +10,6 @@ Milestone 1: Database Models and Schema Setup completed.
 1. Clone the repository:
 ```bash
 git clone https://github.com/23f2002788/placement-portal-application/
-cd placement_portal
 ```
 
 2. Create a virtual environment named `my_env`:
