@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Application #{{ application.id }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-row">
+    <div>
+      <h1>Application #{{ application.id }}</h1>
+      <p>Full application detail</p>
+    </div>
+    <a href="{{ url_for('admin_applications') }}" class="btn btn-gray">← Back</a>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+  <div class="card">
+    <div class="card-title">Student</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="profile-field"><div class="pf-label">Name</div><div class="pf-value" style="font-weight:600;">{{ application.student.name }}</div></div>
+      <div class="profile-field"><div class="pf-label">Email</div><div class="pf-value">{{ application.student.email }}</div></div>
+      <div class="profile-field"><div class="pf-label">Student ID</div><div class="pf-value">{{ application.student.student_id or '—' }}</div></div>
+      <div class="profile-field"><div class="pf-label">Contact</div><div class="pf-value">{{ application.student.contact or '—' }}</div></div>
+      <div class="profile-field"><div class="pf-label">Education</div><div class="pf-value">{{ application.student.education or '—' }}</div></div>
+      {% if application.student.resume_path %}
+        <a href="/uploads/{{ application.student.resume_path }}" target="_blank" class="btn btn-outline btn-sm">📎 View Resume</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Job Position</div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="profile-field"><div class="pf-label">Title</div><div class="pf-value" style="font-weight:600;">{{ application.job_position.title }}</div></div>
+      <div class="profile-field"><div class="pf-label">Company</div><div class="pf-value">{{ application.job_position.company.name }}</div></div>
+      <div class="profile-field"><div class="pf-label">Salary Range</div><div class="pf-value">{{ application.job_position.salary_range or '—' }}</div></div>
+      <div class="profile-field"><div class="pf-label">Experience</div><div class="pf-value">{{ application.job_position.experience or '—' }}</div></div>
+      <div class="profile-field">
+        <div class="pf-label">Required Skills</div>
+        <div class="pf-value">
+          {% if application.job_position.required_skills %}
+            {% for skill in application.job_position.required_skills.split(',') %}
+              <span class="badge badge-blue" style="margin:2px;">{{ skill.strip() }}</span>
+            {% endfor %}
+          {% else %}—{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card" style="margin-top:18px;">
+  <div class="card-title">Application Status</div>
+  <div style="display:flex;gap:24px;align-items:center;flex-wrap:wrap;">
+    <div class="profile-field">
+      <div class="pf-label">Current Status</div>
+      <div class="pf-value" style="margin-top:6px;">
+        {% set s = application.status %}
+        {% if s == 'Applied' %}<span class="badge badge-blue" style="font-size:.9rem;padding:5px 14px;">Applied</span>
+        {% elif s == 'Shortlisted' %}<span class="badge badge-purple" style="font-size:.9rem;padding:5px 14px;">Shortlisted</span>
+        {% elif s == 'Interview' %}<span class="badge badge-amber" style="font-size:.9rem;padding:5px 14px;">Interview</span>
+        {% elif s == 'Selected' %}<span class="badge badge-green" style="font-size:.9rem;padding:5px 14px;">Selected</span>
+        {% elif s == 'Placed' %}<span class="badge badge-green" style="font-size:.9rem;padding:5px 14px;">Placed ✓</span>
+        {% elif s == 'Rejected' %}<span class="badge badge-red" style="font-size:.9rem;padding:5px 14px;">Rejected</span>
+        {% else %}<span class="badge badge-gray">{{ s }}</span>{% endif %}
+      </div>
+    </div>
+    <div class="profile-field">
+      <div class="pf-label">Applied On</div>
+      <div class="pf-value">{{ application.applied_date.strftime('%d %B %Y') if application.applied_date else '—' }}</div>
+    </div>
+    <div class="profile-field">
+      <div class="pf-label">Last Updated</div>
+      <div class="pf-value">{{ application.updated_date.strftime('%d %B %Y') if application.updated_date else '—' }}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

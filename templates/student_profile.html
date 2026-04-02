@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>My Profile</h1>
+  <p>Keep your profile complete to improve your chances with recruiters.</p>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 2fr;gap:20px;align-items:start;">
+
+  <!-- Left panel — avatar & quick info -->
+  <div>
+    <div class="card" style="text-align:center;padding:28px 20px;">
+      <div style="width:72px;height:72px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:#fff;margin:0 auto 14px;">
+        {{ student.name[0].upper() }}
+      </div>
+      <div style="font-weight:700;font-size:1.05rem;color:var(--navy);">{{ student.name }}</div>
+      <div style="font-size:.83rem;color:var(--gray);margin-top:3px;">{{ student.email }}</div>
+      {% if student.student_id %}
+      <div style="font-size:.78rem;color:var(--gray);margin-top:4px;">ID: {{ student.student_id }}</div>
+      {% endif %}
+      <hr>
+      {% if student.resume_path %}
+      <div style="margin-top:4px;">
+        <span class="badge badge-green">✅ Resume uploaded</span><br>
+        <a href="{{ url_for('static', filename='uploads/resumes/' + student.resume_path) }}" target="_blank"
+           style="font-size:.8rem;color:var(--blue);text-decoration:none;margin-top:6px;display:inline-block;">📄 View resume</a>
+      </div>
+      {% else %}
+      <span class="badge badge-red">⚠ No resume yet</span>
+      {% endif %}
+      <div style="margin-top:12px;font-size:.78rem;color:var(--gray);">
+        Member since {{ student.registered_date.strftime('%b %Y') }}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right panel — edit form -->
+  <div class="card">
+    <div class="card-title">Edit Profile</div>
+    <form method="POST" action="{{ url_for('student_profile') }}" enctype="multipart/form-data" data-validate>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Full Name *</label>
+          <input type="text" name="name" value="{{ student.name }}" required>
+          <div class="err"></div>
+        </div>
+        <div class="form-group">
+          <label>Contact Number</label>
+          <input type="text" name="contact" value="{{ student.contact or '' }}" placeholder="+91 XXXXXXXXXX">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>Education</label>
+        <textarea name="education" rows="3" placeholder="e.g. B.Tech in Computer Science, XYZ University, 2025 — CGPA 8.5">{{ student.education or '' }}</textarea>
+        <div class="hint">Mention degree, branch, university, year, and CGPA/percentage.</div>
+      </div>
+
+      <div class="form-group">
+        <label>Skills</label>
+        <textarea name="skills" rows="3" placeholder="e.g. Python, Django, SQL, Machine Learning, Communication">{{ student.skills or '' }}</textarea>
+        <div class="hint">Comma-separated. Companies search by skills.</div>
+      </div>
+
+      <div class="form-group">
+        <label>Resume <span style="color:var(--gray);font-weight:400;">(PDF, DOC, DOCX)</span></label>
+        <input type="file" name="resume" accept=".pdf,.doc,.docx">
+        {% if student.resume_path %}
+        <div class="hint">Current: {{ student.resume_path }} — upload a new file to replace it.</div>
+        {% else %}
+        <div class="hint" style="color:var(--red);">⚠ Resume is required to apply for jobs.</div>
+        {% endif %}
+      </div>
+
+      <div style="display:flex;gap:10px;margin-top:4px;">
+        <button type="submit" class="btn btn-primary">Save Changes</button>
+        <a href="{{ url_for('student_dashboard') }}" class="btn btn-gray">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Skills preview -->
+{% if student.skills %}
+<div class="card" style="margin-top:20px;">
+  <div class="card-title">Skill Tags</div>
+  <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    {% for skill in student.skills.split(',') %}
+    <span style="background:var(--blue-lt);color:var(--blue);border:1px solid #bfdbfe;border-radius:6px;padding:4px 12px;font-size:.82rem;font-weight:500;">{{ skill.strip() }}</span>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Preview selected file name
+  document.querySelector('input[type=file]')?.addEventListener('change', function() {
+    const hint = this.parentElement.querySelector('.hint');
+    if (this.files.length && hint) {
+      hint.textContent = '📎 Selected: ' + this.files[0].name;
+      hint.style.color = 'var(--green)';
+    }
+  });
+</script>
+{% endblock %}

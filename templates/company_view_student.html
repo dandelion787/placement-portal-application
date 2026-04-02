@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block title %}Student Profile{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-row">
+    <div>
+      <h1>Student Profile</h1>
+      <p>Viewing applicant details for <strong>{{ application.job_position.title }}</strong></p>
+    </div>
+    <a href="{{ url_for('company_all_applications') }}" class="btn btn-outline btn-sm">← Back to Applications</a>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:280px 1fr;gap:20px;align-items:start;">
+
+  <!-- Left — identity card -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <div class="card" style="text-align:center;padding:28px 20px;">
+      <div style="width:72px;height:72px;border-radius:50%;background:var(--blue);display:flex;align-items:center;justify-content:center;font-size:1.8rem;font-weight:700;color:#fff;margin:0 auto 14px;">
+        {{ student.name[0].upper() }}
+      </div>
+      <div style="font-weight:700;font-size:1.05rem;color:var(--navy);">{{ student.name }}</div>
+      {% if student.student_id %}
+      <div style="font-size:.8rem;color:var(--gray);margin-top:3px;">ID: {{ student.student_id }}</div>
+      {% endif %}
+      <hr>
+      <div style="font-size:.83rem;color:var(--gray);text-align:left;display:flex;flex-direction:column;gap:7px;">
+        <div>✉️ {{ student.email }}</div>
+        {% if student.contact %}<div>📞 {{ student.contact }}</div>{% endif %}
+        <div>📅 Joined {{ student.registered_date.strftime('%b %Y') }}</div>
+      </div>
+    </div>
+
+    <!-- Application status card -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px;">Application Status</div>
+      <div style="display:flex;flex-direction:column;gap:8px;font-size:.85rem;">
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--gray);">Position</span>
+          <span style="font-weight:600;">{{ application.job_position.title }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;">
+          <span style="color:var(--gray);">Applied</span>
+          <span>{{ application.applied_date.strftime('%d %b %Y') }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="color:var(--gray);">Status</span>
+          {% if application.status == 'Shortlisted' %}<span class="badge badge-amber">⭐ Shortlisted</span>
+          {% elif application.status == 'Interview' %}<span class="badge badge-purple">🗓 Interview</span>
+          {% elif application.status == 'Selected' %}<span class="badge badge-green">✅ Selected</span>
+          {% elif application.status == 'Placed' %}<span class="badge badge-green">🎉 Placed</span>
+          {% endif %}
+        </div>
+      </div>
+      <hr>
+      <!-- Quick status update -->
+      <div style="font-size:.8rem;font-weight:600;color:var(--gray);margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px;">Update Status</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        {% set next_statuses = ['Shortlisted','Interview','Selected','Placed','Rejected'] %}
+        {% for s in next_statuses %}
+        {% if s != application.status %}
+        <a href="{{ url_for('update_application', id=application.id, status=s) }}"
+           class="btn btn-sm {% if s == 'Rejected' %}btn-danger{% elif s in ['Selected','Placed'] %}btn-success{% else %}btn-outline{% endif %}"
+           onclick="return confirm('Set status to {{ s }}?')">{{ s }}</a>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Resume -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px;">Resume</div>
+      {% if student.resume_path %}
+      <a href="{{ url_for('static', filename='uploads/resumes/' + student.resume_path) }}"
+         target="_blank" class="btn btn-primary" style="width:100%;justify-content:center;">
+        📄 View / Download Resume
+      </a>
+      <div style="font-size:.77rem;color:var(--gray);margin-top:8px;text-align:center;">{{ student.resume_path }}</div>
+      {% else %}
+      <div style="text-align:center;padding:12px 0;">
+        <span class="badge badge-red">No resume uploaded</span>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Right — full profile details -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- Education -->
+    <div class="card">
+      <div class="card-title">🎓 Education</div>
+      {% if student.education %}
+      <p style="font-size:.9rem;color:var(--text);line-height:1.65;white-space:pre-line;">{{ student.education }}</p>
+      {% else %}
+      <p style="color:var(--gray);font-size:.875rem;">No education details provided.</p>
+      {% endif %}
+    </div>
+
+    <!-- Skills -->
+    <div class="card">
+      <div class="card-title">🛠 Skills</div>
+      {% if student.skills %}
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        {% for skill in student.skills.split(',') %}
+        <span style="background:var(--blue-lt);color:var(--blue);border:1px solid #bfdbfe;border-radius:6px;padding:5px 13px;font-size:.82rem;font-weight:500;">
+          {{ skill.strip() }}
+        </span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="color:var(--gray);font-size:.875rem;">No skills listed.</p>
+      {% endif %}
+    </div>
+
+    <!-- Skills match -->
+    {% if application.job_position.required_skills and student.skills %}
+    <div class="card">
+      <div class="card-title">🎯 Skills Match — {{ application.job_position.title }}</div>
+      {% set required = application.job_position.required_skills.split(',') %}
+      {% set student_skills_lower = student.skills.lower() %}
+      <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        {% for skill in required %}
+        {% set s = skill.strip() %}
+        {% if s.lower() in student_skills_lower %}
+        <span style="background:var(--green-lt);color:var(--green);border:1px solid #bbf7d0;border-radius:6px;padding:5px 13px;font-size:.82rem;font-weight:500;">✓ {{ s }}</span>
+        {% else %}
+        <span style="background:#f1f5f9;color:var(--gray);border:1px solid var(--border);border-radius:6px;padding:5px 13px;font-size:.82rem;">✗ {{ s }}</span>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% set matched = [] %}
+      {% for skill in required %}{% if skill.strip().lower() in student_skills_lower %}{% set _ = matched.append(1) %}{% endif %}{% endfor %}
+      <div style="margin-top:12px;font-size:.82rem;color:var(--gray);">
+        Matched <strong style="color:var(--navy);">{{ matched|length }}</strong> of <strong style="color:var(--navy);">{{ required|length }}</strong> required skills.
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- All applications at this company -->
+    {% set company_job_ids = application.job_position.company_id %}
+    <div class="card">
+      <div class="card-title">📋 Applications at Your Company</div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Position</th>
+              <th>Applied On</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="font-weight:500;">{{ application.job_position.title }}</td>
+              <td style="color:var(--gray);font-size:.82rem;">{{ application.applied_date.strftime('%d %b %Y') }}</td>
+              <td>
+                {% if application.status == 'Shortlisted' %}<span class="badge badge-amber">⭐ Shortlisted</span>
+                {% elif application.status == 'Interview' %}<span class="badge badge-purple">🗓 Interview</span>
+                {% elif application.status == 'Selected' %}<span class="badge badge-green">✅ Selected</span>
+                {% elif application.status == 'Placed' %}<span class="badge badge-green">🎉 Placed</span>
+                {% elif application.status == 'Rejected' %}<span class="badge badge-red">Rejected</span>
+                {% else %}<span class="badge badge-blue">{{ application.status }}</span>
+                {% endif %}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

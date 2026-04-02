@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Applications — {{ job.title }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-row">
+    <div>
+      <h1>{{ job.title }}</h1>
+      <p>{{ applications | length }} application{{ 's' if applications | length != 1 }}</p>
+    </div>
+    <a href="{{ url_for('company_jobs') }}" class="btn btn-gray">← Back</a>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    {% if applications %}
+    <table>
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Student ID</th>
+          <th>Contact</th>
+          <th>Skills</th>
+          <th>Applied On</th>
+          <th>Status</th>
+          <th>Resume</th>
+          <th>Update Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for app in applications %}
+        <tr>
+          <td>
+            <div style="font-weight:600;">{{ app.student.name }}</div>
+            <div style="font-size:.78rem;color:var(--gray);">{{ app.student.email }}</div>
+          </td>
+          <td><code style="font-size:.8rem;background:#f1f5f9;padding:2px 6px;border-radius:4px;">{{ app.student.student_id or '—' }}</code></td>
+          <td style="font-size:.85rem;">{{ app.student.contact or '—' }}</td>
+          <td style="max-width:140px;font-size:.82rem;">{{ app.student.skills or '—' }}</td>
+          <td style="font-size:.82rem;color:var(--gray);">{{ app.applied_date.strftime('%d %b %Y') if app.applied_date else '—' }}</td>
+          <td>
+            {% set s = app.status %}
+            {% if s == 'Applied' %}<span class="badge badge-blue">Applied</span>
+            {% elif s == 'Shortlisted' %}<span class="badge badge-purple">Shortlisted</span>
+            {% elif s == 'Interview' %}<span class="badge badge-amber">Interview</span>
+            {% elif s == 'Selected' %}<span class="badge badge-green">Selected</span>
+            {% elif s == 'Placed' %}<span class="badge badge-green">Placed ✓</span>
+            {% elif s == 'Rejected' %}<span class="badge badge-red">Rejected</span>
+            {% else %}<span class="badge badge-gray">{{ s }}</span>{% endif %}
+          </td>
+          <td>
+            {% if app.student.resume_path %}
+              <a href="/uploads/{{ app.student.resume_path }}" target="_blank" class="btn btn-outline btn-sm">📎</a>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <div class="td-actions">
+              {% if app.status != 'Shortlisted' and app.status != 'Placed' %}
+                <a href="{{ url_for('update_application', id=app.id, status='Shortlisted') }}" class="btn btn-sm btn-outline">Shortlist</a>
+              {% endif %}
+              {% if app.status == 'Shortlisted' %}
+                <a href="{{ url_for('update_application', id=app.id, status='Interview') }}" class="btn btn-sm btn-warning">Interview</a>
+              {% endif %}
+              {% if app.status == 'Interview' %}
+                <a href="{{ url_for('update_application', id=app.id, status='Selected') }}" class="btn btn-sm btn-success">Select</a>
+              {% endif %}
+              {% if app.status == 'Selected' %}
+                <a href="{{ url_for('update_application', id=app.id, status='Placed') }}" class="btn btn-sm btn-success">Place</a>
+              {% endif %}
+              {% if app.status not in ['Rejected', 'Placed'] %}
+                <a href="{{ url_for('update_application', id=app.id, status='Rejected') }}" class="btn btn-sm btn-danger">Reject</a>
+              {% endif %}
+              {% if app.status in ['Shortlisted', 'Interview', 'Selected'] %}
+                <a href="{{ url_for('company_view_student', student_id=app.student.id) }}" class="btn btn-sm btn-gray">Profile</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">
+      <div class="emoji">📋</div>
+      <p>No applications received for this posting yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

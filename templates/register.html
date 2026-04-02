@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Register — {{ role | capitalize }}{% endblock %}
+
+{% block head %}
+<style>
+  .auth-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 32px 30px; }
+  .auth-title { font-size: 1.3rem; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+  .auth-sub { font-size: .85rem; color: var(--gray); margin-bottom: 22px; }
+  .auth-footer { text-align: center; font-size: .84rem; color: var(--gray); margin-top: 16px; }
+  .auth-footer a { color: var(--blue); text-decoration: none; font-weight: 600; }
+  .role-pill { display: inline-block; background: var(--blue-lt); color: var(--blue); font-size: .78rem; font-weight: 700; padding: 3px 12px; border-radius: 20px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: .5px; }
+  .file-input-wrap { border: 2px dashed var(--border); border-radius: 8px; padding: 18px; text-align: center; cursor: pointer; transition: border-color .13s; }
+  .file-input-wrap:hover { border-color: var(--blue); }
+  .file-input-wrap input[type=file] { display: none; }
+  .file-input-wrap .fi-label { font-size: .85rem; color: var(--gray); margin-top: 6px; }
+  .file-input-wrap .fi-icon { font-size: 1.5rem; }
+  .file-chosen { font-size: .8rem; color: var(--green); margin-top: 6px; display: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="auth-card">
+  <span class="role-pill">{{ role }}</span>
+  <div class="auth-title">Create your account</div>
+  <div class="auth-sub">
+    {% if role == 'student' %}Fill in your details to get started with job applications.
+    {% else %}Register your company — you'll be active after admin approval.{% endif %}
+  </div>
+
+  <form method="POST" action="{{ url_for('register', role=role) }}" enctype="multipart/form-data" data-validate>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Full Name</label>
+        <input type="text" name="name" placeholder="{% if role == 'student' %}Your full name{% else %}Company name{% endif %}" required>
+        <div class="err"></div>
+      </div>
+      <div class="form-group">
+        <label>Email</label>
+        <input type="email" name="email" placeholder="contact@example.com" required>
+        <div class="err"></div>
+      </div>
+    </div>
+
+    {% if role == 'student' %}
+    <div class="form-row">
+      <div class="form-group">
+        <label>Student ID</label>
+        <input type="text" name="student_id" placeholder="e.g. CS21B001" required>
+        <div class="err"></div>
+      </div>
+      <div class="form-group">
+        <label>Contact Number</label>
+        <input type="tel" name="contact" placeholder="+91 9876543210" pattern="[0-9+\-\s]{7,15}">
+        <div class="err"></div>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Education (optional)</label>
+      <input type="text" name="education" placeholder="e.g. B.Tech CSE, 3rd Year">
+    </div>
+    <div class="form-group">
+      <label>Skills (optional)</label>
+      <input type="text" name="skills" placeholder="e.g. Python, React, SQL">
+      <div class="hint">Comma-separated list of your skills</div>
+    </div>
+    <div class="form-group">
+      <label>Resume (optional — you can upload later)</label>
+      <div class="file-input-wrap" onclick="document.getElementById('resume-file').click()">
+        <div class="fi-icon">📎</div>
+        <div class="fi-label">Click to choose PDF / DOC / DOCX</div>
+        <input type="file" id="resume-file" name="resume" accept=".pdf,.doc,.docx" onchange="showFileName(this)">
+        <div class="file-chosen" id="file-chosen-label"></div>
+      </div>
+    </div>
+    {% else %}
+    <div class="form-row">
+      <div class="form-group">
+        <label>Industry</label>
+        <select name="industry" required>
+          <option value="">Select industry</option>
+          <option>Information Technology</option>
+          <option>Finance &amp; Banking</option>
+          <option>Manufacturing</option>
+          <option>Healthcare</option>
+          <option>Consulting</option>
+          <option>E-Commerce</option>
+          <option>Education</option>
+          <option>Other</option>
+        </select>
+        <div class="err"></div>
+      </div>
+      <div class="form-group">
+        <label>Contact Number</label>
+        <input type="tel" name="contact" placeholder="+91 9876543210">
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="form-row">
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" name="password" id="pwd" placeholder="Min 8 characters" required minlength="8">
+        <div class="err"></div>
+      </div>
+      <div class="form-group">
+        <label>Confirm Password</label>
+        <input type="password" name="confirm_password" id="cpwd" placeholder="Re-enter password" required>
+        <div class="err"></div>
+      </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px;">
+      {% if role == 'student' %}Create Account{% else %}Submit for Approval{% endif %}
+    </button>
+  </form>
+
+  <div class="auth-footer">
+    Already have an account? <a href="{{ url_for('login') }}">Log in</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  function showFileName(input) {
+    const label = document.getElementById('file-chosen-label');
+    if (input.files.length > 0) {
+      label.textContent = '✓ ' + input.files[0].name;
+      label.style.display = 'block';
+    }
+  }
+
+  // Password match validation
+  document.querySelector('form').addEventListener('submit', function(e) {
+    const pwd  = document.getElementById('pwd');
+    const cpwd = document.getElementById('cpwd');
+    if (pwd && cpwd && pwd.value !== cpwd.value) {
+      cpwd.classList.add('invalid');
+      const err = cpwd.parentElement.querySelector('.err');
+      if (err) { err.style.display = 'block'; err.textContent = 'Passwords do not match.'; }
+      e.preventDefault();
+    }
+  });
+</script>
+{% endblock %}

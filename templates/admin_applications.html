@@ -1,0 +1,61 @@
+{% extends "base.html" %}
+{% block title %}All Applications{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>All Applications</h1>
+  <p>Complete view of every application across the portal</p>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    {% if applications %}
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Student</th>
+          <th>Job Position</th>
+          <th>Company</th>
+          <th>Applied On</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for app in applications %}
+        <tr>
+          <td style="color:var(--gray);font-size:.8rem;">{{ app.id }}</td>
+          <td>
+            <div style="font-weight:600;">{{ app.student.name }}</div>
+            <div style="font-size:.78rem;color:var(--gray);">{{ app.student.student_id }}</div>
+          </td>
+          <td>{{ app.job_position.title }}</td>
+          <td>{{ app.job_position.company.name }}</td>
+          <td style="font-size:.83rem;color:var(--gray);">{{ app.applied_date.strftime('%d %b %Y') if app.applied_date else '—' }}</td>
+          <td>
+            {% set s = app.status %}
+            {% if s == 'Applied' %}<span class="badge badge-blue">Applied</span>
+            {% elif s == 'Shortlisted' %}<span class="badge badge-purple">Shortlisted</span>
+            {% elif s == 'Interview' %}<span class="badge badge-amber">Interview</span>
+            {% elif s == 'Selected' %}<span class="badge badge-green">Selected</span>
+            {% elif s == 'Placed' %}<span class="badge badge-green">Placed</span>
+            {% elif s == 'Rejected' %}<span class="badge badge-red">Rejected</span>
+            {% else %}<span class="badge badge-gray">{{ s }}</span>{% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('admin_view_application', application_id=app.id) }}" class="btn btn-gray btn-sm">Details</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">
+      <div class="emoji">📋</div>
+      <p>No applications yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

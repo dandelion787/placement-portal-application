@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Browse Jobs{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-row">
+    <div>
+      <h1>Browse Jobs</h1>
+      <p>{{ jobs|length }} open placement drive{{ 's' if jobs|length != 1 else '' }} available</p>
+    </div>
+  </div>
+</div>
+
+<!-- Search -->
+<form method="GET" action="{{ url_for('student_jobs') }}">
+  <div class="search-bar">
+    <input type="text" name="search" placeholder="Search by job title, company, or skill…" value="{{ request.args.get('search', '') }}">
+    <button type="submit" class="btn btn-primary">Search</button>
+    {% if request.args.get('search') %}
+    <a href="{{ url_for('student_jobs') }}" class="btn btn-gray">Clear</a>
+    {% endif %}
+  </div>
+</form>
+
+{% if jobs %}
+<div style="display:flex;flex-direction:column;gap:14px;">
+  {% for job in jobs %}
+  <div class="card" style="padding:20px 24px;">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;">
+      <div style="flex:1;min-width:200px;">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+          <span style="font-size:1rem;font-weight:700;color:var(--navy);">{{ job.title }}</span>
+          {% if job.status == 'Active' %}<span class="badge badge-green">Active</span>{% endif %}
+        </div>
+        <div style="font-size:.875rem;color:var(--gray);margin-bottom:10px;">
+          🏢 <strong style="color:var(--text);">{{ job.company.name }}</strong>
+          {% if job.company.industry %} &nbsp;·&nbsp; {{ job.company.industry }}{% endif %}
+        </div>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--gray);">
+          {% if job.salary_range %}<span>💰 {{ job.salary_range }}</span>{% endif %}
+          {% if job.experience %}<span>🧑‍💼 {{ job.experience }}</span>{% endif %}
+          <span>📅 {{ job.posted_date.strftime('%d %b %Y') }}</span>
+        </div>
+
+        {% if job.required_skills %}
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:6px;">
+          {% for skill in job.required_skills.split(',') %}
+          <span style="background:#f1f5f9;border:1px solid var(--border);border-radius:5px;padding:2px 9px;font-size:.75rem;color:#475569;">{{ skill.strip() }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {% if job.description %}
+        <p style="margin-top:10px;font-size:.83rem;color:var(--gray);line-height:1.55;max-width:600px;">{{ job.description[:180] }}{% if job.description|length > 180 %}…{% endif %}</p>
+        {% endif %}
+      </div>
+
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;min-width:120px;">
+        {% if job.id in applied_job_ids %}
+          <span class="badge badge-gray" style="font-size:.8rem;padding:7px 14px;">✓ Applied</span>
+        {% else %}
+          <a href="{{ url_for('apply_job', job_id=job.id) }}" class="btn btn-primary btn-sm"
+             onclick="return confirm('Apply for {{ job.title }} at {{ job.company.name }}?')">Apply Now</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty">
+    <div class="emoji">🔍</div>
+    <p>{% if request.args.get('search') %}No jobs match your search. <a href="{{ url_for('student_jobs') }}" style="color:var(--blue);">Clear filter</a>{% else %}No open job drives at the moment. Check back soon!{% endif %}</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
