@@ -1,10 +1,12 @@
-from flask import Flask
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
+from werkzeug.utils import secure_filename
 from datetime import datetime
 import os
 
 app = Flask(__name__)
+app.secret_key = 'supersecret123'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///placement_portal.db'
 app.config['UPLOAD_FOLDER'] = 'static/uploads/resumes'
 
@@ -123,6 +125,19 @@ class Placement(db.Model):
     def __repr__(self):
         return f'<Placement application={self.application_id} salary={self.salary}>'
 
+class Notification(db.Model):
+    __tablename__ = 'notification'
+
+    id = db.Column(db.Integer, primary_key=True)
+    student_id = db.Column(db.Integer, db.ForeignKey('student.id'), nullable=False)
+    application_id = db.Column(db.Integer, db.ForeignKey('application.id'), nullable=False)
+    message = db.Column(db.Text, nullable=False)
+    is_read = db.Column(db.Boolean, default=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def __repr__(self):
+        return f'<Notification {self.id}>'
+
 def init_db():
     with app.app_context():
         db.create_all()
@@ -142,11 +157,7 @@ def init_db():
             print("Default admin created: username='admin', password='admin123'")
 
 
-if __name__ == '__main__':
-    init_db()
-    print("Database initialised successfully.")
-
-###########ROUTES_Defined#############
+############################################# ROUTES_Defined ##########################################################
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -485,36 +496,6 @@ def company_applications(job_id):
     return render_template('company_applications.html', job=job, applications=applications)
 
 
-@app.route('/company/application/update/<int:id>/<status>')
-def update_application(id, status):
-    if session.get('role') != 'company':
-        return redirect(url_for('login'))
-    
-    if status not in ['Shortlisted', 'Selected', 'Rejected', 'Placed']:
-        flash('Invalid status!', 'danger')
-        return redirect(url_for('company_dashboard'))
-    
-    application = Application.query.get_or_404(id)
-    
-    if application.job_position.company_id != session['user_id']:
-        flash('Unauthorized access!', 'danger')
-        return redirect(url_for('company_dashboard'))
-    
-    application.status = status
-    application.updated_date = datetime.utcnow()
-    
-    # Trigger notification to student on every status change
-    create_notification(application.student_id, application.id, status)
-    
-    if status == 'Placed':
-        placement = Placement(application_id=application.id)
-        db.session.add(placement)
-    
-    db.session.commit()
-    flash(f'Application status updated to {status}!', 'success')
-    return redirect(url_for('company_applications', job_id=application.job_id))
-
-
 # View shortlisted student profile and resume
 @app.route('/company/student/profile/<int:student_id>')
 def view_student_profile(student_id):
@@ -571,163 +552,59 @@ def student_dashboard():
     return render_template('student_dashboard.html', student=student, stats=stats, notifications=notifications)
 
 
-@app.route('/student/profile', methods=['GET', 'POST'])
-def student_profile():
-    if session.get('role') != 'student':
-        return redirect(url_for('login'))
-    
-    student = Student.query.get(session['user_id'])
-    
-    if request.method == 'POST':
-        student.name = request.form.get('name')
-        student.contact = request.form.get('contact')
-        student.education = request.form.get('education')   # Education update
-        student.skills = request.form.get('skills')         # Skills update
-        
-        # Resume upload — allowed on both registration and profile update
-        if 'resume' in request.files:
-            file = request.files['resume']
-            if file and file.filename:
-                allowed_extensions = {'pdf', 'doc', 'docx'}
-                ext = file.filename.rsplit('.', 1)[-1].lower()
-                if ext not in allowed_extensions:
-                    flash('Invalid file type! Only PDF, DOC, DOCX allowed.', 'danger')
-                    return redirect(url_for('student_profile'))
-                
-                filename = secure_filename(f"{student.id}_{file.filename}")
-                filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(filepath)
-                student.resume_path = filename
-        
-        db.session.commit()
-        flash('Profile updated successfully!', 'success')
-        return redirect(url_for('student_profile'))
-    
-    return render_template('student_profile.html', student=student)
-
-
 @app.route('/register/student', methods=['GET', 'POST'])
 def register_student():
     if request.method == 'POST':
         email = request.form.get('email')
         password = request.form.get('password')
-        
+        student_id = request.form.get('student_id')
+
+        # Email check
         existing = Student.query.filter_by(email=email).first()
         if existing:
             flash('Email already registered!', 'danger')
             return redirect(url_for('register_student'))
-        
+
+        # Student ID check ✅ (THIS FIXES YOUR ERROR)
+        existing_id = Student.query.filter_by(student_id=student_id).first()
+        if existing_id:
+            flash('Student ID already registered!', 'danger')
+            return redirect(url_for('register_student'))
+
         student = Student(
             name=request.form.get('name'),
             email=email,
             password=generate_password_hash(password),
-            student_id=request.form.get('student_id'),
+            student_id=student_id,
             contact=request.form.get('contact'),
             education=request.form.get('education'),
             skills=request.form.get('skills')
         )
+
         db.session.add(student)
-        db.session.flush()  # Get student.id before commit for resume naming
-        
-        # Resume upload option during registration
+        db.session.flush()
+
+        # Resume upload
         if 'resume' in request.files:
             file = request.files['resume']
             if file and file.filename:
                 allowed_extensions = {'pdf', 'doc', 'docx'}
                 ext = file.filename.rsplit('.', 1)[-1].lower()
+
                 if ext not in allowed_extensions:
                     flash('Invalid file type! Only PDF, DOC, DOCX allowed.', 'danger')
                     return redirect(url_for('register_student'))
-                
+
                 filename = secure_filename(f"{student.id}_{file.filename}")
                 filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
                 file.save(filepath)
                 student.resume_path = filename
-        
+
         db.session.commit()
         flash('Registration successful! Please login.', 'success')
         return redirect(url_for('login'))
-    
+
     return render_template('register_student.html')
-
-
-@app.route('/student/jobs')
-def student_jobs():
-    if session.get('role') != 'student':
-        return redirect(url_for('login'))
-    
-    search = request.args.get('search', '')
-    
-    # Only show admin-approved and active jobs
-    jobs = JobPosition.query.filter_by(is_approved=True, status='Active').all()
-    
-    # Search by company name, position/title, or required skills
-    if search:
-        jobs = [j for j in jobs if
-                search.lower() in j.title.lower() or
-                search.lower() in j.company.name.lower() or
-                search.lower() in (j.required_skills or '').lower()]
-    
-    # Track which jobs the student has already applied to
-    student_applications = Application.query.filter_by(student_id=session['user_id']).all()
-    applied_job_ids = [app.job_id for app in student_applications]
-    
-    return render_template('student_jobs.html', jobs=jobs, applied_job_ids=applied_job_ids)
-
-
-@app.route('/student/apply/<int:job_id>')
-def apply_job(job_id):
-    if session.get('role') != 'student':
-        return redirect(url_for('login'))
-    
-    student = Student.query.get(session['user_id'])
-    
-    # Block application if resume is not uploaded
-    if not student.resume_path:
-        flash('Please upload your resume before applying!', 'warning')
-        return redirect(url_for('student_profile'))
-    
-    job = JobPosition.query.get_or_404(job_id)
-    
-    # Ensure job is still active and approved
-    if not job.is_approved or job.status != 'Active':
-        flash('This job is no longer accepting applications.', 'warning')
-        return redirect(url_for('student_jobs'))
-    
-    # Prevent duplicate applications
-    existing = Application.query.filter_by(
-        student_id=session['user_id'],
-        job_id=job_id
-    ).first()
-    
-    if existing:
-        flash('You have already applied for this job!', 'warning')
-        return redirect(url_for('student_jobs'))
-    
-    application = Application(
-        student_id=session['user_id'],
-        job_id=job_id,
-        status='Applied'
-    )
-    db.session.add(application)
-    db.session.commit()
-    
-    flash('Application submitted successfully!', 'success')
-    return redirect(url_for('student_jobs'))
-
-
-@app.route('/student/applications')
-def student_applications():
-    if session.get('role') != 'student':
-        return redirect(url_for('login'))
-    
-    # View all applied jobs with their current application status
-    applications = Application.query.filter_by(
-        student_id=session['user_id']
-    ).order_by(Application.applied_date.desc()).all()
-    
-    return render_template('student_applications.html', applications=applications)
-
 
 # Notifications — status change alerts for shortlisted/selected/rejected
 @app.route('/student/notifications')
@@ -871,18 +748,34 @@ def apply_job(job_id):
 # STUDENT — VIEW OWN RECORDS ONLY
 # ─────────────────────────────────────────
 
+@app.context_processor
+def inject_student():
+    if session.get('role') == 'student':
+        return dict(student=Student.query.get(session['user_id']))
+    return dict(student=None)
+
 @app.route('/student/applications')
 def student_applications():
     if session.get('role') != 'student':
         return redirect(url_for('login'))
 
-    # Students can only view their own applications
     applications = Application.query.filter_by(
         student_id=session['user_id']
     ).order_by(Application.applied_date.desc()).all()
 
-    return render_template('student_applications.html', applications=applications)
+    stats = {
+        'total_applications': len(applications),
+        'shortlisted': len([a for a in applications if a.status == 'Shortlisted']),
+        'selected': len([a for a in applications if a.status == 'Selected']),
+        'rejected': len([a for a in applications if a.status == 'Rejected']),
+        'placed': len([a for a in applications if a.status == 'Placed'])
+    }
 
+    return render_template(
+        'student_applications.html',
+        applications=applications,
+        stats=stats
+    )
 
 @app.route('/student/profile', methods=['GET', 'POST'])
 def student_profile():
@@ -1089,3 +982,8 @@ def company_all_applications():
         status_filter=status_filter,
         allowed_statuses=allowed_statuses
     )
+
+if __name__ == '__main__':
+    init_db()
+    print("Database initialised successfully.")
+    app.run(debug=True)
