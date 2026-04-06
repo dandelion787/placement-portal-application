@@ -3,48 +3,103 @@
 
 {% block head %}
 <style>
-  .hero { text-align: center; padding: 60px 20px 40px; }
-  .hero h1 { font-size: 2.4rem; font-weight: 700; color: var(--navy); line-height: 1.2; }
-  .hero h1 span { color: var(--blue); }
-  .hero p { color: var(--gray); font-size: 1.05rem; margin-top: 12px; max-width: 480px; margin-left: auto; margin-right: auto; }
-  .hero-btns { display: flex; gap: 12px; justify-content: center; margin-top: 28px; flex-wrap: wrap; }
-  .cards-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 18px; max-width: 700px; margin: 0 auto 40px; }
-  .role-card { background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 28px 20px; text-align: center; text-decoration: none; color: var(--text); transition: box-shadow .15s, transform .15s; }
-  .role-card:hover { box-shadow: 0 6px 24px rgba(0,0,0,.08); transform: translateY(-2px); }
-  .role-card .rc-icon { font-size: 2.2rem; margin-bottom: 10px; }
-  .role-card h3 { font-size: 1rem; font-weight: 700; color: var(--navy); }
-  .role-card p { font-size: .82rem; color: var(--gray); margin-top: 5px; }
-  .section-label { text-align: center; font-size: .8rem; font-weight: 700; color: var(--gray); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 16px; }
+  body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .container {
+    text-align: center;
+    max-width: 700px;
+    width: 100%;
+  }
+
+  h1 {
+    font-size: 2.2rem;
+    margin-bottom: 10px;
+  }
+
+  h1 span {
+    color: var(--blue);
+  }
+
+  p {
+    font-size: 1rem;
+    color: var(--gray);
+    margin-bottom: 20px;
+  }
+
+  .btns {
+    margin-bottom: 25px;
+  }
+
+  .btns a {
+    margin: 5px;
+    padding: 8px 16px;
+    font-size: 0.95rem;
+  }
+
+  .cards {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+  }
+
+  .card {
+    flex: 1;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--text);
+  }
+
+  .card div {
+    font-size: 2rem;
+  }
+
+  .card h3 {
+    margin: 8px 0 5px;
+  }
+
+  .card p {
+    font-size: 0.85rem;
+  }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="hero">
-  <h1>Your Campus <span>Placement</span><br>Made Simple</h1>
-  <p>Connect students with companies. Manage drives, track applications, and get placed — all in one place.</p>
-  <div class="hero-btns">
-    <a href="{{ url_for('login') }}" class="btn btn-primary">Login</a>
-    <a href="{{ url_for('register', role='student') }}" class="btn btn-outline">Student Register</a>
-    <a href="{{ url_for('register', role='company') }}" class="btn btn-gray">Company Register</a>
-  </div>
-</div>
+<div class="container">
+  <h1>Your Campus <span>Placement</span></h1>
+  <p>Manage drives, track applications, and get placed — all in one place.</p>
 
-<p class="section-label">Who are you?</p>
-<div class="cards-row">
-  <a href="{{ url_for('register', role='student') }}" class="role-card">
-    <div class="rc-icon">🎓</div>
-    <h3>Student</h3>
-    <p>Browse jobs, apply and track your placement journey</p>
-  </a>
-  <a href="{{ url_for('register', role='company') }}" class="role-card">
-    <div class="rc-icon">🏢</div>
-    <h3>Company</h3>
-    <p>Post drives, review candidates and hire top talent</p>
-  </a>
-  <a href="{{ url_for('login') }}" class="role-card">
-    <div class="rc-icon">🛡️</div>
-    <h3>Admin</h3>
-    <p>Oversee and manage the entire placement process</p>
-  </a>
+  <div class="btns">
+    <a href="{{ url_for('login') }}" class="btn btn-primary">Login</a>
+    <a href="{{ url_for('register', role='student') }}" class="btn btn-outline">Student</a>
+    <a href="{{ url_for('register', role='company') }}" class="btn btn-gray">Company</a>
+  </div>
+
+  <div class="cards">
+    <a href="{{ url_for('register', role='student') }}" class="card">
+      <div>🎓</div>
+      <h3>Student</h3>
+      <p>Apply & track</p>
+    </a>
+
+    <a href="{{ url_for('register', role='company') }}" class="card">
+      <div>🏢</div>
+      <h3>Company</h3>
+      <p>Hire talent</p>
+    </a>
+
+    <a href="{{ url_for('login') }}" class="card">
+      <div>🛡️</div>
+      <h3>Admin</h3>
+      <p>Manage</p>
+    </a>
+  </div>
 </div>
 {% endblock %}
