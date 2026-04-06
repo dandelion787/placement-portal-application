@@ -6,7 +6,7 @@ from datetime import datetime
 import os
 
 app = Flask(__name__)
-app.secret_key = 'supersecret123'
+app.secret_key = os.getenv('SecretKey')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///placement_portal.db'
 app.config['UPLOAD_FOLDER'] = 'static/uploads/resumes'
 
