@@ -657,10 +657,6 @@ def create_notification(student_id, application_id, status):
         db.session.add(notification)
 
 
-# ─────────────────────────────────────────
-# APPLICATION HISTORY
-# ─────────────────────────────────────────
-
 @app.route('/student/applications/history')
 def student_application_history():
     if session.get('role') != 'student':
@@ -684,11 +680,6 @@ def student_application_history():
         })
 
     return render_template('student_application_history.html', history=history)
-
-
-# ─────────────────────────────────────────
-# DUPLICATE APPLICATION PREVENTION
-# ─────────────────────────────────────────
 
 @app.route('/student/apply/<int:job_id>')
 def apply_job(job_id):
@@ -742,11 +733,6 @@ def apply_job(job_id):
 
     flash('Application submitted successfully!', 'success')
     return redirect(url_for('student_applications'))
-
-
-# ─────────────────────────────────────────
-# STUDENT — VIEW OWN RECORDS ONLY
-# ─────────────────────────────────────────
 
 @app.context_processor
 def inject_student():
@@ -809,11 +795,6 @@ def student_profile():
 
     return render_template('student_profile.html', student=student)
 
-
-# ─────────────────────────────────────────
-# APPROVED PLACEMENT DRIVES — STUDENT VIEW
-# ─────────────────────────────────────────
-
 @app.route('/student/jobs')
 def student_jobs():
     if session.get('role') != 'student':
@@ -842,11 +823,6 @@ def student_jobs():
     ]
 
     return render_template('student_jobs.html', jobs=jobs, applied_job_ids=applied_job_ids)
-
-
-# ─────────────────────────────────────────
-# APPLICATION STATUS MANAGEMENT
-# ─────────────────────────────────────────
 
 @app.route('/company/application/update/<int:id>/<status>')
 def update_application(id, status):
@@ -893,10 +869,6 @@ def update_application(id, status):
     return redirect(url_for('company_applications', job_id=application.job_id))
 
 
-# ─────────────────────────────────────────
-# ROLE-BASED PROFILE & APPLICATION ACCESS
-# ─────────────────────────────────────────
-
 # Admin — view any student profile and all their applications
 @app.route('/admin/student/<int:student_id>')
 def admin_view_student(student_id):
@@ -936,7 +908,6 @@ def company_view_student(student_id):
         return redirect(url_for('login'))
 
     # Company can only view profiles of students who applied to their jobs
-    # and have progressed past the initial Applied stage
     company_job_ids = [job.id for job in company.job_positions]
     application = Application.query.filter(
         Application.student_id == student_id,
