@@ -40,6 +40,6 @@ python app.py
 
 ## Default Admin Credentials
 - **Username**: admin@placementportal.com
-- **Password**: admin123
+- **Password**: Shaurya123..
 
 **Important**: Change these credentials after first login!
