@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Manage Drives{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-row">
+    <div>
+      <h1>Drives / Job Postings</h1>
+      <p>Approve or reject company drive requests</p>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    {% if jobs %}
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Title</th>
+          <th>Company</th>
+          <th>Posted Date</th>
+          <th>Status</th>
+          <th>Approval</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr>
+          <td>{{ job.id }}</td>
+          <td>{{ job.title }}</td>
+          <td>{{ job.company.name }}</td>
+          <td>{{ job.posted_date.strftime('%Y-%m-%d') if job.posted_date else '—' }}</td>
+          <td>
+            {% if job.status == 'Active' %}
+              <span class="badge badge-green">Active</span>
+            {% else %}
+              <span class="badge badge-gray">Closed</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if job.is_approved %}
+              <span class="badge badge-green">Approved</span>
+            {% else %}
+              <span class="badge badge-amber">Pending</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="td-actions">
+              {% if not job.is_approved %}
+                <!-- FIXED: Changed 'id' to 'drive_id' -->
+                <a href="{{ url_for('approve_job', drive_id=job.id) }}" class="btn btn-success btn-sm">Approve</a>
+                <a href="{{ url_for('reject_job', drive_id=job.id) }}" class="btn btn-danger btn-sm">Reject</a>
+              {% else %}
+                <span class="badge badge-green">✓ Approved</span>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">
+      <div class="emoji">💼</div>
+      <p>No job postings found.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

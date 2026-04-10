@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}My Job Drives{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-row">
+    <div>
+      <h1>My Job Drives</h1>
+      <p>Manage your company's job postings</p>
+    </div>
+    <div>
+      <a href="{{ url_for('create_job') }}" class="btn btn-primary">+ Create New Drive</a>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    {% if jobs %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Posted Date</th>
+          <th>Applications</th>
+          <th>Status</th>
+          <th>Approval</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr>
+          <td><strong>{{ job.title }}</strong></td>
+          <td>{{ job.posted_date.strftime('%Y-%m-%d') if job.posted_date else '—' }}</td>
+          <td>
+            <a href="{{ url_for('company_applications', drv_id=job.id) }}">
+              {{ job.applications|length }} applicants
+            </a>
+          </td>
+          <td>
+            {% if job.status == 'Active' %}
+              <span class="badge badge-green">Active</span>
+            {% else %}
+              <span class="badge badge-gray">Closed</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if job.is_approved %}
+              <span class="badge badge-green">Approved</span>
+            {% else %}
+              <span class="badge badge-warning">Pending</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="action-buttons">
+              <a href="{{ url_for('edit_job', drv_id=job.id) }}" class="btn btn-small btn-primary">Edit</a>
+              <a href="{{ url_for('company_applications', drv_id=job.id) }}" class="btn btn-small btn-info">View Apps</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <p>No job drives created yet.</p>
+      <a href="{{ url_for('create_job') }}" class="btn btn-primary">Create Drive</a>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

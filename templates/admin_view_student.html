@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% block title %}{{ student.name }}{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-row">
+    <div>
+      <h1>{{ student.name }}</h1>
+      <p>Student profile &amp; application history</p>
+    </div>
+    <a href="{{ url_for('admin_students') }}" class="btn btn-gray">← Back</a>
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 2fr;gap:18px;align-items:start;">
+  <div class="card">
+    <div class="card-title">Profile</div>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="profile-field">
+        <div class="pf-label">Email</div>
+        <div class="pf-value">{{ student.email }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="pf-label">Student ID</div>
+        <!-- FIXED: Changed 'student_id' to 'stud_id' -->
+        <div class="pf-value"><code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">{{ student.stud_id or '—' }}</code></div>
+      </div>
+      <div class="profile-field">
+        <div class="pf-label">Contact</div>
+        <div class="pf-value">{{ student.contact or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="pf-label">Education</div>
+        <div class="pf-value">{{ student.education or '—' }}</div>
+      </div>
+      <div class="profile-field">
+        <div class="pf-label">Skills</div>
+        <div class="pf-value">
+          {% if student.skills %}
+            {% for skill in student.skills.split(',') %}
+              <span class="badge badge-blue" style="margin:2px;">{{ skill.strip() }}</span>
+            {% endfor %}
+          {% else %}—{% endif %}
+        </div>
+      </div>
+      <div class="profile-field">
+        <div class="pf-label">Account Status</div>
+        <div class="pf-value">
+          {% if student.is_active %}<span class="badge badge-green">Active</span>
+          {% else %}<span class="badge badge-red">Blacklisted</span>{% endif %}
+        </div>
+      </div>
+      <div class="profile-field">
+        <div class="pf-label">Registered On</div>
+        <div class="pf-value">{{ student.reg_date.strftime('%d %b %Y') if student.reg_date else '—' }}</div>
+      </div>
+      {% if student.resume_path %}
+      <!-- FIXED: Use url_for for static files -->
+      <a href="{{ url_for('static', filename='uploads/resumes/' + student.resume_path) }}" target="_blank" class="btn btn-outline" style="justify-content:center;margin-top:4px;">📎 View Resume</a>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Application History</div>
+    {% if applications %}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Job</th>
+            <th>Company</th>
+            <th>Applied</th>
+            <th>Updated</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for app in applications %}
+          <tr>
+            <td style="font-weight:600;">{{ app.job_position.title }}</td>
+            <td>{{ app.job_position.company.name }}</td>
+            <td style="font-size:.82rem;color:var(--gray);">{{ app.applied_date.strftime('%d %b %Y') if app.applied_date else '—' }}</td>
+            <td style="font-size:.82rem;color:var(--gray);">{{ app.updated_date.strftime('%d %b %Y') if app.updated_date else '—' }}</td>
+            <td>
+              {% set s = app.status %}
+              {% if s == 'Applied' %}<span class="badge badge-blue">Applied</span>
+              {% elif s == 'Shortlisted' %}<span class="badge badge-purple">Shortlisted</span>
+              {% elif s == 'Interview' %}<span class="badge badge-amber">Interview</span>
+              {% elif s == 'Selected' %}<span class="badge badge-green">Selected</span>
+              {% elif s == 'Placed' %}<span class="badge badge-green">Placed ✓</span>
+              {% elif s == 'Rejected' %}<span class="badge badge-red">Rejected</span>
+              {% else %}<span class="badge badge-gray">{{ s }}</span>{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty">
+      <div class="emoji">📋</div>
+      <p>No applications yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

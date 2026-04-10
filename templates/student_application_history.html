@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Application History{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Application History</h1>
+  <p>Complete timeline of all your placement applications.</p>
+</div>
+
+{% if history %}
+<div style="display:flex;flex-direction:column;gap:0;">
+  {% for entry in history %}
+  <div style="display:flex;gap:0;position:relative;">
+    <!-- Timeline line -->
+    <div style="display:flex;flex-direction:column;align-items:center;width:36px;flex-shrink:0;">
+      <div style="width:12px;height:12px;border-radius:50%;margin-top:18px;flex-shrink:0;
+        background:{% if entry.status == 'Placed' or entry.status == 'Selected' %}var(--green)
+        {% elif entry.status == 'Rejected' %}var(--red)
+        {% elif entry.status == 'Shortlisted' %}var(--amber)
+        {% elif entry.status == 'Interview' %}#7c3aed
+        {% else %}var(--blue){% endif %};
+        box-shadow:0 0 0 3px {% if entry.status == 'Placed' or entry.status == 'Selected' %}#dcfce7
+        {% elif entry.status == 'Rejected' %}#fee2e2
+        {% elif entry.status == 'Shortlisted' %}#fef3c7
+        {% elif entry.status == 'Interview' %}#f3e8ff
+        {% else %}var(--blue-lt){% endif %};"></div>
+      {% if not loop.last %}
+      <div style="width:2px;flex:1;background:var(--border);min-height:16px;"></div>
+      {% endif %}
+    </div>
+
+    <!-- Card -->
+    <div class="card" style="flex:1;margin-bottom:12px;margin-left:12px;">
+      <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div>
+          <div style="font-weight:700;font-size:.95rem;color:var(--navy);">{{ entry.job.title }}</div>
+          <div style="font-size:.83rem;color:var(--gray);margin-top:2px;">
+            🏢 {{ entry.company.name }}{% if entry.company.industry %} &nbsp;·&nbsp; {{ entry.company.industry }}{% endif %}
+          </div>
+          {% if entry.job.salary_range %}
+          <div style="font-size:.8rem;color:var(--gray);margin-top:4px;">💰 {{ entry.job.salary_range }}</div>
+          {% endif %}
+        </div>
+        <div style="text-align:right;">
+          {% if entry.status == 'Applied' %}<span class="badge badge-blue">Applied</span>
+          {% elif entry.status == 'Shortlisted' %}<span class="badge badge-amber">⭐ Shortlisted</span>
+          {% elif entry.status == 'Interview' %}<span class="badge badge-purple">🗓 Interview</span>
+          {% elif entry.status == 'Selected' %}<span class="badge badge-green">✅ Selected</span>
+          {% elif entry.status == 'Placed' %}<span class="badge badge-green">🎉 Placed</span>
+          {% elif entry.status == 'Rejected' %}<span class="badge badge-red">Rejected</span>
+          {% else %}<span class="badge badge-gray">{{ entry.status }}</span>{% endif %}
+          <div style="font-size:.76rem;color:var(--gray);margin-top:5px;">
+            Applied {{ entry.applied_on.strftime('%d %b %Y') if entry.applied_on else '—' }}
+          </div>
+          {% if entry.applied_on != entry.updated_on and entry.updated_on %}
+          <div style="font-size:.76rem;color:var(--gray);">
+            Updated {{ entry.updated_on.strftime('%d %b %Y') if entry.updated_on else '—' }}
+          </div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- FIXED: Added null check for placement -->
+      {% if entry.application.placement %}
+      <div style="margin-top:12px;padding:10px 14px;background:var(--green-lt);border-radius:8px;font-size:.83rem;color:var(--green);">
+        🎉 <strong>Placed!</strong>
+        {% if entry.application.placement.salary %} &nbsp;·&nbsp; {{ entry.application.placement.salary }}{% endif %}
+        {% if entry.application.placement.joining_date %} &nbsp;·&nbsp; Joining {{ entry.application.placement.joining_date.strftime('%d %b %Y') }}{% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty">
+    <div class="emoji">🕓</div>
+    <p>No application history yet.<br>
+       <a href="{{ url_for('student_jobs') }}" style="color:var(--blue);">Start applying</a> to build your history.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

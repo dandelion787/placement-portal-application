@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Applications{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-row">
+    <div>
+      <h1>Applications</h1>
+      <p>Monitor all student applications across drives</p>
+    </div>
+  </div>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    {% if applications %}
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Student</th>
+          <th>Drive Title</th>
+          <th>Company</th>
+          <th>Status</th>
+          <th>Applied Date</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for app in applications %}
+        <tr>
+          <td>{{ app.id }}</td>
+          <td>{{ app.student.name }}<br>
+            <small style="color:var(--gray);">{{ app.student.stud_id or '' }}</small>
+          </td>
+          <td>{{ app.job_position.title }}</td>
+          <td>{{ app.job_position.company.name }}</td>
+          <td>
+            {% if app.status == 'Applied' %}
+              <span class="badge badge-blue">{{ app.status }}</span>
+            {% elif app.status == 'Shortlisted' %}
+              <span class="badge badge-green">{{ app.status }}</span>
+            {% elif app.status == 'Interview' %}
+              <span class="badge badge-purple">{{ app.status }}</span>
+            {% elif app.status == 'Selected' %}
+              <span class="badge badge-success">{{ app.status }}</span>
+            {% elif app.status == 'Rejected' %}
+              <span class="badge badge-red">{{ app.status }}</span>
+            {% elif app.status == 'Placed' %}
+              <span class="badge badge-gold">{{ app.status }}</span>
+            {% else %}
+              <span class="badge badge-gray">{{ app.status }}</span>
+            {% endif %}
+          </td>
+          <td>{{ app.applied_date.strftime('%Y-%m-%d') if app.applied_date else '—' }}</td>
+          <td>
+            <div class="td-actions">
+              <!-- FIXED: Changed 'application_id' to 'appl_id' -->
+              <a href="{{ url_for('admin_view_application', appl_id=app.id) }}" class="btn btn-sm btn-primary">View Details</a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">
+      <div class="emoji">📝</div>
+      <p>No applications found.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

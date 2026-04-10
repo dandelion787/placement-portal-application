@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Students{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-row">
+    <div>
+      <h1>Students</h1>
+      <p>Manage student accounts</p>
+    </div>
+  </div>
+</div>
+
+<form class="search-bar" method="GET">
+  <input type="text" name="search" value="{{ request.args.get('search', '') }}" placeholder="Search by name, enrolment number, or contact…">
+  <button class="btn btn-primary" type="submit">Search</button>
+  {% if request.args.get('search') %}
+    <a href="{{ url_for('admin_students') }}" class="btn btn-gray">Clear</a>
+  {% endif %}
+</form>
+
+<div class="card">
+  <div class="table-wrap">
+    {% if students %}
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Enrolment No.</th>
+          <th>Email</th>
+          <th>Contact</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for student in students %}
+        <tr>
+          <td>{{ student.id }}</td>
+          <td>{{ student.name }}</td>
+          <td>{{ student.stud_id or '—' }}</td>
+          <td>{{ student.email }}</td>
+          <td>{{ student.contact or '—' }}</td>
+          <td>
+            {% if student.is_active %}
+              <span class="badge badge-green">Active</span>
+            {% else %}
+              <span class="badge badge-red">Blacklisted</span>
+            {% endif %}
+          </td>
+          <td>
+            <div class="td-actions">
+              <!-- FIXED: Changed 'student_id' to 'stud_id' -->
+              <a href="{{ url_for('admin_view_student', stud_id=student.id) }}" class="btn btn-sm btn-primary">View</a>
+              <a href="{{ url_for('toggle_student', stud_id=student.id) }}" class="btn btn-sm {% if student.is_active %}btn-warning{% else %}btn-success{% endif %}">
+                {% if student.is_active %}Blacklist{% else %}Activate{% endif %}
+              </a>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">
+      <div class="emoji">👨‍🎓</div>
+      <p>No students found{% if request.args.get('search') %} for "{{ request.args.get('search') }}"{% endif %}.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

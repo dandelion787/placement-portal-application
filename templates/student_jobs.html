@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Available Drives{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-row">
+    <div>
+      <h1>Available Drives</h1>
+      <p>Browse and apply for active job opportunities</p>
+    </div>
+  </div>
+</div>
+
+<form class="search-bar" method="GET">
+  <input type="text" name="search" value="{{ request.args.get('search', '') }}" placeholder="Search by title, company, or skills…">
+  <button class="btn btn-primary" type="submit">Search</button>
+  {% if request.args.get('search') %}
+    <a href="{{ url_for('student_jobs') }}" class="btn btn-gray">Clear</a>
+  {% endif %}
+</form>
+
+<div class="card">
+  <div class="table-wrap">
+    {% if jobs %}
+    <table>
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Company</th>
+          <th>Required Skills</th>
+          <th>Experience</th>
+          <th>Salary Range</th>
+          <th>Posted Date</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in jobs %}
+        <tr>
+          <td><strong>{{ job.title }}</strong></td>
+          <td>{{ job.company.name }}</td>
+          <td>{{ job.required_skills[:100] + '...' if job.required_skills and job.required_skills|length > 100 else job.required_skills or '—' }}</td>
+          <td>{{ job.experience or '—' }}</td>
+          <td>{{ job.salary_range or '—' }}</td>
+          <td>{{ job.posted_date.strftime('%Y-%m-%d') if job.posted_date else '—' }}</td>
+          <td>
+            {% if job.id in applied_job_ids %}
+              <span class="badge badge-green">✓ Applied</span>
+            {% else %}
+              <!-- FIXED: Changed 'job_id' to 'drv_id' -->
+              <a href="{{ url_for('apply_job', drv_id=job.id) }}" class="btn btn-primary btn-sm">Apply Now</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty">
+      <div class="emoji">💼</div>
+      <p>No active drives available at the moment.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
