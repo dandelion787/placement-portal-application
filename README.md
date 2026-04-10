@@ -15,6 +15,8 @@ Milestone 5: Student Dashboard and Job Application System completed.
 
 Milestone 6: Job Application History and Status Tracking completed.
 
+Milestone 7: Final Project Submission completed.
+
 ## Installation
 
 1. Clone the repository:
