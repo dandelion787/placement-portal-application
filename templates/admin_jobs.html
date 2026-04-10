@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+{% block title %}Job Postings{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="header-row">
+    <div>
+      <h1>Job Postings</h1>
+      <p>{{ jobs|length }} total posting{{ 's' if jobs|length != 1 else '' }} &nbsp;·&nbsp;
+         {{ jobs|selectattr('is_approved', 'equalto', False)|list|length }} pending approval</p>
+    </div>
+  </div>
+</div>
+
+<!-- Summary Stats -->
+<div class="stats-grid" style="margin-bottom:22px;">
+  <div class="stat-card">
+    <div class="label">Total Postings</div>
+    <div class="value blue">{{ jobs|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Pending Approval</div>
+    <div class="value amber">{{ jobs|selectattr('is_approved', 'equalto', False)|list|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Approved & Active</div>
+    <div class="value green">{{ jobs|selectattr('is_approved', 'equalto', True)|selectattr('status', 'equalto', 'Active')|list|length }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Closed</div>
+    <div class="value gray">{{ jobs|selectattr('status', 'equalto', 'Closed')|list|length }}</div>
+  </div>
+</div>
+
+<!-- Filter Tabs -->
+{% set tab = request.args.get('tab', 'all') %}
+<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px;">
+  {% for label, value in [('All', 'all'), ('Pending', 'pending'), ('Approved', 'approved'), ('Closed', 'closed')] %}
+  <a href="?tab={{ value }}"
+     class="btn btn-sm {% if tab == value %}btn-primary{% else %}btn-gray{% endif %}">
+    {{ label }}
+  </a>
+  {% endfor %}
+</div>
+
+{% set filtered = [] %}
+{% for job in jobs %}
+  {% if tab == 'pending' and not job.is_approved %}{% set _ = filtered.append(job) %}
+  {% elif tab == 'approved' and job.is_approved and job.status == 'Active' %}{% set _ = filtered.append(job) %}
+  {% elif tab == 'closed' and job.status == 'Closed' %}{% set _ = filtered.append(job) %}
+  {% elif tab == 'all' %}{% set _ = filtered.append(job) %}
+  {% endif %}
+{% endfor %}
+
+{% if filtered %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Job Title</th>
+          <th>Company</th>
+          <th>Posted On</th>
+          <th>Applications</th>
+          <th>Approval</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for job in filtered %}
+        <tr>
+          <td style="color:var(--gray);font-size:.8rem;">{{ job.id }}</td>
+
+          <td>
+            <div style="font-weight:600;color:var(--navy);">{{ job.title }}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">
+              {% if job.experience %}
+              <span style="background:#f1f5f9;border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:.72rem;color:var(--gray);">🧑‍💼 {{ job.experience }}</span>
+              {% endif %}
+              {% if job.salary_range %}
+              <span style="background:#f1f5f9;border:1px solid var(--border);border-radius:4px;padding:1px 7px;font-size:.72rem;color:var(--gray);">💰 {{ job.salary_range }}</span>
+              {% endif %}
+            </div>
+            {% if job.required_skills %}
+            <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;">
+              {% for skill in job.required_skills.split(',')[:3] %}
+              <span style="background:var(--blue-lt);color:var(--blue);border-radius:4px;padding:1px 7px;font-size:.72rem;">{{ skill.strip() }}</span>
+              {% endfor %}
+              {% if job.required_skills.split(',')|length > 3 %}
+              <span style="font-size:.72rem;color:var(--gray);padding:1px 4px;">+{{ job.required_skills.split(',')|length - 3 }} more</span>
+              {% endif %}
+            </div>
+            {% endif %}
+          </td>
+
+          <td>
+            <div style="font-weight:500;">{{ job.company.name }}</div>
+            {% if job.company.industry %}
+            <div style="font-size:.77rem;color:var(--gray);">{{ job.company.industry }}</div>
+            {% endif %}
+            {% if not job.company.is_approved %}
+            <span class="badge badge-red" style="font-size:.68rem;margin-top:3px;">Company unapproved</span>
+            {% elif not job.company.is_active %}
+            <span class="badge badge-red" style="font-size:.68rem;margin-top:3px;">Company inactive</span>
+            {% endif %}
+          </td>
+
+          <td style="color:var(--gray);font-size:.82rem;white-space:nowrap;">
+            {{ job.posted_date.strftime('%d %b %Y') }}
+          </td>
+
+          <td style="text-align:center;">
+            <span style="font-weight:700;font-size:1rem;color:var(--navy);">{{ job.applications|length }}</span>
+            {% if job.applications|length > 0 %}
+            <div style="font-size:.75rem;color:var(--gray);">
+              {{ job.applications|selectattr('status','equalto','Placed')|list|length }} placed
+            </div>
+            {% endif %}
+          </td>
+
+          <td>
+            {% if job.is_approved %}
+            <span class="badge badge-green">✅ Approved</span>
+            {% else %}
+            <span class="badge badge-amber">⏳ Pending</span>
+            {% endif %}
+          </td>
+
+          <td>
+            {% if job.status == 'Active' %}
+            <span class="badge badge-blue">Active</span>
+            {% else %}
+            <span class="badge badge-gray">Closed</span>
+            {% endif %}
+          </td>
+
+          <td>
+            <div class="td-actions">
+              {% if not job.is_approved %}
+              <a href="{{ url_for('approve_job', id=job.id) }}"
+                 class="btn btn-success btn-sm"
+                 onclick="return confirm('Approve job posting: {{ job.title }}?')">Approve</a>
+              <a href="{{ url_for('reject_job', id=job.id) }}"
+                 class="btn btn-danger btn-sm"
+                 onclick="return confirm('Reject job posting: {{ job.title }}?')">Reject</a>
+              {% else %}
+              <a href="{{ url_for('reject_job', id=job.id) }}"
+                 class="btn btn-warning btn-sm"
+                 onclick="return confirm('Revoke approval for: {{ job.title }}?')">Revoke</a>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+
+        <!-- Expandable description row -->
+        {% if job.description %}
+        <tr style="background:#fafcff;">
+          <td colspan="8" style="padding:6px 13px 12px 13px;border-bottom:1px solid var(--border);">
+            <details>
+              <summary style="font-size:.8rem;color:var(--blue);cursor:pointer;font-weight:500;">View description</summary>
+              <p style="margin-top:8px;font-size:.83rem;color:var(--gray);line-height:1.6;max-width:680px;">{{ job.description }}</p>
+            </details>
+          </td>
+        </tr>
+        {% endif %}
+
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% else %}
+<div class="card">
+  <div class="empty">
+    <div class="emoji">💼</div>
+    <p>No job postings found{% if tab != 'all' %} in this category{% endif %}.</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
